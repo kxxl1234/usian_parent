@@ -6,6 +6,7 @@ import com.usian.pojo.TbItemParam;
 import com.usian.utils.PageResult;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -30,4 +31,7 @@ public interface ItemServiceFeign {
 
     @RequestMapping("/service/itemParam/selectItemParamByItemCatId/{itemCatId}")
     TbItemParam selectItemParamByItemCatId(@RequestParam Long itemCatId);
+
+    @RequestMapping("/service/item/insertTbItem")
+    Integer insertTbItem(TbItem tbItem,@RequestParam String desc,@RequestParam String itemParams);
 }
