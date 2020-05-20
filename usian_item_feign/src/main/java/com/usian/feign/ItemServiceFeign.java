@@ -34,4 +34,7 @@ public interface ItemServiceFeign {
 
     @RequestMapping("/service/item/insertTbItem")
     Integer insertTbItem(TbItem tbItem,@RequestParam String desc,@RequestParam String itemParams);
+
+    @RequestMapping("/service/itemParam/selectItemParamAll")
+    PageResult selectItemParamAll(@RequestParam Integer page,@RequestParam Integer rows);
 }

@@ -1,8 +1,11 @@
 package com.usian.service;
 
+import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.PageInfo;
 import com.usian.mapper.TbItemParamMapper;
 import com.usian.pojo.TbItemParam;
 import com.usian.pojo.TbItemParamExample;
+import com.usian.utils.PageResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,5 +29,19 @@ public class ItemParamServiceImpl implements ItemParamService {
             return list.get(0);
         }
         return null;
+    }
+
+    @Override
+    public PageResult selectItemParamAll(Integer page, Integer rows) {
+        PageHelper.startPage(page,rows);
+        TbItemParamExample example = new TbItemParamExample();
+        example.setOrderByClause("updated DESC");
+        List<TbItemParam> list = tbItemParamMapper.selectByExampleWithBLOBs(example);
+        PageInfo<TbItemParam> pageInfo = new PageInfo<>(list);
+        PageResult pageResult = new PageResult();
+        pageResult.setTotalPage(pageInfo.getTotal());
+        pageResult.setPageIndex(pageInfo.getPageNum());
+        pageResult.setResult(pageInfo.getList());
+        return pageResult;
     }
 }
