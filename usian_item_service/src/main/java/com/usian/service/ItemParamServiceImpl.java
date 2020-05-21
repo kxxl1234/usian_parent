@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Date;
 import java.util.List;
 
 @Service
@@ -39,9 +40,35 @@ public class ItemParamServiceImpl implements ItemParamService {
         List<TbItemParam> list = tbItemParamMapper.selectByExampleWithBLOBs(example);
         PageInfo<TbItemParam> pageInfo = new PageInfo<>(list);
         PageResult pageResult = new PageResult();
-        pageResult.setTotalPage(pageInfo.getTotal());
+        pageResult.setTotalPage(Long.valueOf(pageInfo.getPages()));
         pageResult.setPageIndex(pageInfo.getPageNum());
         pageResult.setResult(pageInfo.getList());
         return pageResult;
+    }
+
+    @Override
+    public Integer insertItemParam(Long itemCatId, String paramData) {
+        //1、判断该类别的商品是否有规格模板
+        TbItemParamExample example = new TbItemParamExample();
+        TbItemParamExample.Criteria criteria = example.createCriteria();
+        criteria.andItemCatIdEqualTo(itemCatId);
+        List<TbItemParam> list = tbItemParamMapper.selectByExample(example);
+        if (list.size() > 0){
+            return 0;
+        }
+
+        //2.保存规格模板
+        Date date = new Date();
+        TbItemParam tbItemParam = new TbItemParam();
+        tbItemParam.setItemCatId(itemCatId);
+        tbItemParam.setParamData(paramData);
+        tbItemParam.setCreated(date);
+        tbItemParam.setUpdated(date);
+        return tbItemParamMapper.insertSelective(tbItemParam);
+    }
+
+    @Override
+    public Integer deleteItemParamById(Long id) {
+        return tbItemParamMapper.deleteByPrimaryKey(id);
     }
 }
