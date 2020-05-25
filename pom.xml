@@ -19,6 +19,7 @@
         <module>usian_content_service</module>
         <module>usian_content_feign</module>
         <module>usian_content_web</module>
+        <module>usian_portal_web</module>
     </modules>
 
     <!--Spring Boot 父工程-->

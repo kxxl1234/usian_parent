@@ -2,6 +2,7 @@ package com.usian.feign;
 
 import com.usian.pojo.TbContent;
 import com.usian.pojo.TbContentCategory;
+import com.usian.utils.AdNode;
 import com.usian.utils.PageResult;
 import com.usian.utils.Result;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -33,4 +34,7 @@ public interface ContentServiceFeign {
 
     @RequestMapping("/service/content/deleteContentByIds")
     Integer deleteContentByIds(@RequestParam Long ids);
+
+    @RequestMapping("/service/content/selectFrontendContentByAD")
+    List<AdNode> selectFrontendContentByAD();
 }

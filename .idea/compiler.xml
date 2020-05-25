@@ -16,6 +16,7 @@
         <module name="usian_item_feign" />
         <module name="usian_item_service" />
         <module name="usian_item_wab" />
+        <module name="usian_portal_web" />
       </profile>
     </annotationProcessing>
   </component>
@@ -31,6 +32,7 @@
       <module name="usian_item_feign" options="-parameters" />
       <module name="usian_item_service" options="-parameters" />
       <module name="usian_item_wab" options="-parameters" />
+      <module name="usian_portal_web" options="-parameters" />
     </option>
   </component>
 </project>
