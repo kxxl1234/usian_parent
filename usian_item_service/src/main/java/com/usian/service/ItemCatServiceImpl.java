@@ -3,9 +3,11 @@ package com.usian.service;
 import com.usian.mapper.TbItemCatMapper;
 import com.usian.pojo.TbItemCat;
 import com.usian.pojo.TbItemCatExample;
+import com.usian.redis.RedisClient;
 import com.usian.utils.CatNode;
 import com.usian.utils.CatResult;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +19,12 @@ public class ItemCatServiceImpl implements ItemCatService {
 
     @Autowired
     private TbItemCatMapper tbItemCatMapper;
+
+    @Autowired
+    private RedisClient redisClient;
+
+    @Value("${PROTAL_CATRESULT_KEY}")
+    private String PROTAL_CATRESULT_KEY;
 
     @Override
     public List<TbItemCat> selectItemCategoryByParentId(Long id) {
@@ -32,10 +40,19 @@ public class ItemCatServiceImpl implements ItemCatService {
 
     @Override
     public CatResult selectItemCategoryAll() {
+        //1.先查redis
+        CatResult catResultRedis = (CatResult) redisClient.get(PROTAL_CATRESULT_KEY);
+        if (catResultRedis!=null){
+            //2.如果redis有，直接return
+            return catResultRedis;
+        }
+
+        //如果redis没有，去数据库查，并把结果放到redis中
         //因为一级菜单有子菜单，子菜单有子菜单，所以递归调用
         List catlist = getCatlist(0L);
         CatResult catResult = new CatResult();
         catResult.setData(catlist);
+        redisClient.set(PROTAL_CATRESULT_KEY,catResult);
         return catResult;
     }
 
