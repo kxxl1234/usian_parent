@@ -9,37 +9,36 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>usian_content_service</artifactId>
+    <artifactId>usian_search_service</artifactId>
 
     <dependencies>
-        <!--mapper-->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.usian</groupId>
             <artifactId>common_mapper</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>
-        <!--utils-->
         <dependency>
             <groupId>com.usian</groupId>
             <artifactId>common_utils</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>
-        <!--Spring Boot Web Starter-->
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
+            <groupId>org.elasticsearch.client</groupId>
+            <artifactId>elasticsearch-rest-high-level-client</artifactId>
         </dependency>
-        <!--Spring Cloud Eureka Client Starter-->
         <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.usian</groupId>
-            <artifactId>common_redis</artifactId>
-            <version>1.0-SNAPSHOT</version>
+            <groupId>org.elasticsearch</groupId>
+            <artifactId>elasticsearch</artifactId>
         </dependency>
     </dependencies>
+
 
 </project>

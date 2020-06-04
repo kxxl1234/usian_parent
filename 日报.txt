@@ -1,0 +1,180 @@
+2020.6.1 --- 日报
+  ElasticSearch介绍
+     什么是elasticsearch?
+  	    elasticsearch是基于lucene的全文检索服务器，对外提供restful接口
+
+     elasticsearch原理
+  	    正排索引：查字典时从第一页开始找，直到找到关键字为止（CTRL+F）
+  	    倒排索引：查字典时通过目录查找
+
+  	 逻辑结构：一个倒排索引表，由三部分组成
+  		document
+  		term
+  		term----关联----document
+  安装：ElasticSearch、Kibana、head
+     index管理：
+        创建index
+          PUT /java1906
+            {
+              "settings": {
+                "number_of_shards": 2,
+                "number_of_replicas": 0
+              }
+            }
+        修改index
+          PUT /java1906/_settings
+            {
+              "number_of_replicas" : 1
+            }
+        删除index
+          DELETE /java1906 [, other_index]
+     mapping管理
+        创建mapping
+          POST index_name/type_name/_mapping
+        查询mapping
+          GET /java1906/course/_mapping
+     document管理
+        创建document
+            Post语法：POST/index_name/type_name{fieldname:fieldvalue}
+            Put语法：PUT/index_name/type_name/id{field_name:field_value}
+        查询document
+            GET /index_name/type_name/id或
+            GET /index_name/type_name/_search?q=field_name:field_value
+        删除document
+            语法：DELETE/index_name/type_name/id
+
+
+2020.6.2 --- 日报
+   IK分词器
+      安装
+    	解压到plugs目录下，并重命名为ik
+
+      自定义词库
+    	IkAnalyzer.cfg.xml：配置扩展词典和停用词典
+    	main.dic：扩展词典
+    	stopwords.dic：停用词典
+
+      两种分词模式
+    	ik_smart：粗粒度拆分
+    	ik_max_word：细粒度拆分
+
+   field详细介绍
+      field的属性
+    	type：field的类型
+    	analyzer：分词模式、ik_smart、ik_max_word
+    	index：创建doucument和分词列表
+    	field索引不存储：
+    		"_source":{
+    			"excludes":{"description"}
+    		}
+
+      常用的field类型
+    	文本字段：text
+
+    	关键字字段：keyword 索引时不分词
+
+    	日期字段：date
+
+    	数字字段：long、integer、double、float
+
+      field属性设置的标准
+    			           标准
+    		分词         是否有意义
+    		索引         是否搜索
+    		存储         是否展示
+   springboot整合ES
+     整合步骤
+    	1、pom.xml
+    		elasticsearch、elasticsearch-rest-high-level-client
+
+    	2、application.yml
+    		spring:
+    		  data:
+    		    elasticsearch:
+    		      cluster-nodes: 192.168.233.134:9200
+    	3、config
+    		@Configuration
+    		public class ElasticsearchConfig extends ElasticsearchProperties{
+
+    			@Bean
+    			public RestHighLevelClient getRestHighLevelClient() {
+    			String[] hosts = getClusterNodes().split(",");
+    			HttpHost[] httpHosts = new HttpHost[hosts.length];
+    			for (int i = 0; i < httpHosts.length; i++) {
+    			    String h = hosts[i];
+    			    httpHosts[i] = new HttpHost(h.split(":")[0],
+    							Integer.parseInt(h.split(":")[1]));
+    			}
+    				return new RestHighLevelClient(RestClient.builder(httpHosts));
+    			}
+    		}
+
+     删除索引库
+        DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest("java1906");
+    	restHighLevelClient.indices().delete(deleteIndexRequest,RequestOptions.DEFAULT);
+     创建索引库
+    	CreateIndexRequest createIndexRequest = new CreateIndexRequest("java1906");
+    	restHighLevelClient.indices().create(createIndexRequest,RequestOptions.DEFAULT)
+
+
+2020.6.3 --- 日报
+     添加文档
+        IndexRequest indexRequest = new IndexRequest("java1906", "course", "1");
+        restHighLevelClient.index(indexRequest,RequestOptions.DEFAULT);
+     批量添加文档
+        bulkRequest.add(new IndexRequest("java1906", "course","2").source("{\"name\":\"php实战\",\"description\":\"php谁都不服\",\"studymodel\":\"201001\",\"price\":\"5.6\"}", XContentType.JSON));
+       	bulkRequest.add(new IndexRequest("java1906", "course","3").source("{\"name\":\"net实战\",\"description\":\"net从入门到放弃\",\"studymodel\":\"201001\",\"price\":\"7.6\"}", XContentType.JSON));
+        restHighLevelClient.bulk(bulkRequest,RequestOptions.DEFAULT);
+     修改文档
+         UpdateRequest updateRequest = new UpdateRequest("java1906", "course", "1");
+         restHighLevelClient.update(updateRequest,RequestOptions.DEFAULT);
+     删除文档
+         DeleteRequest deleteRequest = new DeleteRequest("java1906","course","1");
+         restHighLevelClient.delete(deleteRequest,RequestOptions.DEFAULT);
+     查询文档
+        GetRequest getRequest = new GetRequest("java1906","course","1");
+        restHighLevelClient.get(getRequest,RequestOptions.DEFAULT);
+     DSL查询
+        match_all查询
+        	SearchRequest searchRequest = new SearchRequest("java1906");
+        	searchRequest.types("course");
+        	SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+        	searchSourceBuilder.query(QueryBuilders.matchAllQuery());
+        	searchRequest.search(searchSourceBuilder)
+        	restHighLevelClient.search(searchRequest,RequestOptions.DEFAULT);
+        分页查询
+        	SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+        	searchSourceBuilder.query(QueryBuilders.matchAllQuery());
+        	searchSourceBuilder.form(1);
+        	searchSourceBuilder.size(2);
+        	searchSourceBuilder.sort("price",SortOrder.DESC);
+        match查询
+            SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+            searchSourceBuilder.query(QueryBuilders.matchQuery("name", "spring开发").operator(Operator.AND));
+            searchRequest.source(searchSourceBuilder);
+            searchResponse = restHighLevelClient.search(searchRequest,RequestOptions.DEFAULT);
+        multi_match查询
+            SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+            searchSourceBuilder.query(QueryBuilders.multiMatchQuery("开发","name","description"));
+            searchRequest.source(searchSourceBuilder);
+            searchResponse = restHighLevelClient.search(searchRequest,RequestOptions.DEFAULT);
+        bool查询
+            SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+            BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
+            boolQueryBuilder.must(QueryBuilders.matchQuery("name", "开发"));
+            boolQueryBuilder.must(QueryBuilders.matchQuery("description","开发"));
+            searchSourceBuilder.query(boolQueryBuilder);
+            searchRequest.source(searchSourceBuilder);
+            searchResponse = restHighLevelClient.search(searchRequest,RequestOptions.DEFAULT);
+        filter查询
+            SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+            BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
+            boolQueryBuilder.must(QueryBuilders.matchQuery("name","开发"));
+            boolQueryBuilder.filter(QueryBuilders.rangeQuery("price").gte(10).lte(100))
+            searchSourceBuilder.query(boolQueryBuilder);
+            searchRequest.source(searchSourceBuilder);
+            searchResponse = restHighLevelClient.search(searchRequest,RequestOptions.DEFAULT);
+
+
+2020.6.4 --- 日报
+    一键导入

@@ -18,6 +18,9 @@
         <module name="usian_item_service" />
         <module name="usian_item_wab" />
         <module name="usian_portal_web" />
+        <module name="usian_search_feign" />
+        <module name="usian_search_service" />
+        <module name="usian_search_web" />
       </profile>
     </annotationProcessing>
   </component>
@@ -35,6 +38,9 @@
       <module name="usian_item_service" options="-parameters" />
       <module name="usian_item_wab" options="-parameters" />
       <module name="usian_portal_web" options="-parameters" />
+      <module name="usian_search_feign" options="-parameters" />
+      <module name="usian_search_service" options="-parameters" />
+      <module name="usian_search_web" options="-parameters" />
     </option>
   </component>
 </project>
