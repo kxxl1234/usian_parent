@@ -177,7 +177,78 @@
 
 
 2020.6.4 --- 日报
-    一键导入
+     搭建ES集群
+        拷贝节点elasticsearch-1，修改elasticsearch.yml
+        查看集群健康状态：GET _cluster/health
+    展示商品信息导入到索引库
+        创建工程usian_search_service
+            pom：elasticsearch-rest-high-level-client、elasticsearch
+            application.yml：spring:
+                                datasource:
+                                    driver-class-name: com.mysql.jdbc.Driver
+                                    url: jdbc:mysql://127.0.0.1:3306/usian?characterEncoding=UTF-8
+        创建usian_search_feign
+        创建usian_search_web
+            application.yml：ribbon:
+                              ConnectTimeout: 60000、  ReadTimeout: 60000
+        usian-manage-web
+            修改src\api\base.js
+                baseSearchUrl:"/search_api"
+                importAll:"/frontend/searchItem/importAll" // 一键导入商品数据到索引库
+            修改src\api\index.js
+               axios.post(base.baseSearchUrl + base.importAll,null,{timeout:50000});
+            修改src\pages\Product\ProductList\index.vue
+            修改vue.config.js
 
 
 2020.6.5 --- 日报
+ 商品搜索
+    usian_search_service
+         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+         HighlightBuilder highlightBuilder = new HighlightBuilder();
+                    highlightBuilder.preTags("<font color='red'>");
+                    highlightBuilder.postTags("</font>");
+                    highlightBuilder.field("item_title");
+                    searchSourceBuilder.highlighter(highlightBuilder);
+    新增商品同步索引库
+        common_mapper
+            SearchItemMapper：SearchItem getItemById(Long itemId);
+            SearchItemMapper.xml：
+                        a.id,
+                		a.title item_title,
+                		a.sell_point item_sell_point,
+                		a.price item_price,
+                		a.image item_image,
+                		b.name item_category_name,
+                		c.item_desc item_desc
+                	FROM
+                		tb_item a
+                	JOIN tb_item_cat b ON a.cid = b.id
+                	JOIN tb_item_desc c ON a.id = c.item_id
+                	WHERE a.status = 1
+                	  AND a.id=#{itemId}
+        usian_search_service
+            pom：spring-boot-starter-amqp
+            application.yml：
+                spring:
+                  rabbitmq:
+                    host: 192.168.29.134
+                    username: admin
+                    password: 1111
+                    virtual-host: /
+            service：
+                SearchItem searchItem = searchItemMapper.getItemById(Long.valueOf(itemId));
+                IndexResponse indexResponse = restHighLevelClient.index(indexRequest,RequestOptions.DEFAULT);
+            listerner：
+                value = @Queue(value="search_queue",durable = "true"),
+                exchange = @Exchange(value="item_exchage",type= ExchangeTypes.TOPIC),
+                key= {"item.*"}
+        usian_item_service
+            pom.xml：spring-boot-starter-amqp
+            application.yml：
+                spring:
+                  rabbitmq:
+                    host: 192.168.233.132
+                    username: admin
+                    password: 1111
+                    virtual-host: /
