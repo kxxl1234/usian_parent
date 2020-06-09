@@ -24,6 +24,10 @@
         <module>usian_search_service</module>
         <module>usian_search_feign</module>
         <module>usian_search_web</module>
+        <module>usian_detail_web</module>
+        <module>usian_sso_service</module>
+        <module>usian_sso_feign</module>
+        <module>usian_sso_web</module>
     </modules>
 
     <!--Spring Boot 父工程-->

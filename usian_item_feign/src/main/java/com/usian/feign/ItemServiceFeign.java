@@ -1,8 +1,6 @@
 package com.usian.feign;
 
-import com.usian.pojo.TbItem;
-import com.usian.pojo.TbItemCat;
-import com.usian.pojo.TbItemParam;
+import com.usian.pojo.*;
 import com.usian.utils.CatResult;
 import com.usian.utils.PageResult;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -57,4 +55,10 @@ public interface ItemServiceFeign {
 
     @RequestMapping("/service/item/deleteItemById")
     Integer deleteItemById(@RequestParam Long itemId);
+
+    @RequestMapping("/service/item/selectItemDescByItemId")
+    TbItemDesc selectItemDescByItemId(@RequestParam Long itemId);
+
+    @RequestMapping("/service/itemParam/selectTbItemParamItemByItemId")
+    TbItemParamItem selectTbItemParamItemByItemId(@RequestParam Long itemId);
 }
