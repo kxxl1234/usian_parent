@@ -252,3 +252,180 @@
                     username: admin
                     password: 1111
                     virtual-host: /
+
+
+
+2020.6.8 --- 日报
+
+商品详情
+
+mysql： 太多人点商品详情的话，访问量大，mysql吃不消
+es： 从海量数据一查 查一堆数据，用来查详情不合适。es强项没显示出来
+
+方案一：可以使用thymeleaf 页面静态化
+	1.创建商品详情的thymeleaf模板
+	2.创建rabbitmq消息消费者，收到消息后生成静态页面（D:/data/26774635182.html）
+							商品id
+
+	3.搭建nginx服务器，返回静态页面
+
+方案二：redis
+	1.redis缓存商品详情（不能影响正常逻辑）
+		a.先查询redis，如果有直接返回
+		b.再查询mysql，把并把查询结果装到redis中再返回
+
+	2.如何保证redis不满？如何保证redis中都是热点商品？
+		设置商品的失效时间：86400
+
+	3.怎么保存商品信息（数据类型）？
+	ITEM_INFO:123456:BASE
+	ITEM_INFO:123456:DESC
+	ITEM_INFO:123456:PARAM
+
+缓存穿透
+       缓存穿透是指缓存和数据库中都没有数据，而用户不断发起请求则这些 请求会穿过缓存直接访问数据库，如发起为id为“-1”的数据或id为特别大不存在的数据。假如有恶意攻击，就可以利用这个漏洞，对数据库造成压力，甚至压垮数据库。
+
+解决方案----缓存空对象：
+当存储层不命中后，即使返回的空对象也将其缓存起来，同时会设置一个过期时间（避免控制占用更多的存储空间），之后再访问这个数据将会从缓存中获取，保护了后端数据源；
+	/********************解决缓存穿透************************/
+		if(tbItem == null){
+			//把空对象保存到缓存
+			redisClient.set(ITEM_INFO + ":" + itemId + ":"+ BASE,null);
+			//设置缓存的有效期
+			redisClient.expire(ITEM_INFO + ":" + itemId + ":"+ BASE,30);
+			return tbItem;
+		}
+		//把数据保存到缓存
+		redisClient.set(ITEM_INFO + ":" + itemId + ":"+ BASE,tbItem);
+		//设置缓存的有效期
+		redisClient.expire(ITEM_INFO + ":" + itemId + ":"+ BASE,ITEM_INFO_EXPIRE);
+		return tbItem;
+	}
+
+缓存击穿
+缓存击穿，是指一个key非常热点，在不停的扛着大并发，大并发集中对这一个key不停进行访问，当这个key在失效的瞬间，持续的大并发就穿破缓存，直接请求数据库，就像在一个屏障上凿开了一个洞。
+
+解决方案：
+
+1. 设置热点数据永远不过期
+2. 加分布式锁
+
+common_redis
+ 修改RedisClient
+    public Boolean setnx(String key, Object value, long time) {
+        try {
+            return redisTemplate.opsForValue().setIfAbsent(key, value, time,
+                                                           TimeUnit.SECONDS);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+ @Override
+    public TbItem selectItemInfo(Long itemId){
+        //1、先查询redis,如果有直接返回
+        TbItem tbItem = (TbItem) redisClient.get(ITEM_INFO+":"+itemId+":"+BASE);
+        if(tbItem!=null){
+            return tbItem;
+        }
+        /*****************解决缓存击穿***************/
+        if(redisClient.setnx(SETNX_BASE_LOCK_KEY+":"+itemId,itemId,30L)){
+            //2、再查询mysql,并把查询结果缓存到redis,并设置失效时间
+            tbItem = tbItemMapper.selectByPrimaryKey(itemId);
+
+            /*****************解决缓存穿透*****************/
+            if(tbItem!=null){
+                redisClient.set(ITEM_INFO+":"+itemId+":"+BASE,tbItem);
+                redisClient.expire(ITEM_INFO+":"+itemId+":"+BASE,ITEM_INFO_EXPIRE);
+            }else{
+                redisClient.set(ITEM_INFO+":"+itemId+":"+BASE,null);
+                redisClient.expire(ITEM_INFO+":"+itemId+":"+BASE,30L);
+            }
+            redisClient.del(SETNX_BASC_LOCK_KEY+":"+itemId);
+            return tbItem;
+        }else{
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+           return selectItemInfo(itemId);
+        }
+    }
+
+
+2020.6.9 --- 日报
+雪崩：缓存集中过期   解决方案：失效时间随机或按商品类别设置不同的失效时间
+
+一、单点登录介绍
+	1、什么是单点登录？
+		SSO英文全称Single Sign On，单点登录，登录一次处处可用
+
+	2、思路
+		存(登录)：redis(token,user)       cookie(token_key,token)
+
+		取(查询用户)：cookie(token)--------->redis(user)
+
+密码加密的方法：MD5Utils----String pwd = MD5Utils.digest(user.getPassword());
+
+校验：
+用户名是否存在
+密码是否6-20位
+手机号是否存在
+邮箱是否正确
+
+为什么使用单点登陆，
+比如说布置两台tomcat，用户登陆访问的是tomcat1. 登陆的信息在tomcat1的session里存着。
+但是其他的模块如果用登陆信息的话，nginx访问了tomcat2.  tomcat2里没有存用户。造成了session丢失
+
+redis 和session 都可以设置失效时间，而且是 key-value 形式
+为了防止session丢失，将登陆的信息存到redis。因为所有的用户访问的是同一个redis
+
+注册
+就是一个添加的方法
+
+登陆
+//1.把password加密
+ //2.判断用户名密码是否正确
+//3.登陆成功把user装到redis，并设置失效时间
+//4.返回结果 : map(token,userid,username)
+
+根据token查用户：
+每个模块都显示用户信息，因为要确定redis中有这个用户信息
+为了安全起见，cooki中有，也会去redis中查一把。
+根据token 去查
+查到了说明用户已经登陆，然后显示用户名
+每个模块都有用户名查一次的重置一次失效时间
+
+退出登陆
+删除token
+
+
+
+
+2020.6.10--- 日报
+1. 用户未登录状态下：在不登陆的情况下把购物车信息写入cookie
+   	优点：
+   		1、不占用服务端存储空间
+   		2、代码实现简单。
+   		3、用户体验好
+   	缺点：
+   		1、cookie中保存的容量有限。最大4k
+   		2、把购物车信息保存在cookie中，更换设备购物车信息不能同步。
+
+代码思路：// 1、从cookie中查询商品列表。
+	//2、添加商品到购物车
+	//3、把购车商品列表写入cookie
+
+
+2. 用户已登录状态下：把购物车信息保存到服务端的 Redis 中
+   	优点：
+   		1、更换设备购物车信息可以同步
+   	缺点：
+   		1、占用服务端存储空间
+
+
+
+
+

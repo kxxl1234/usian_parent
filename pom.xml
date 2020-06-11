@@ -28,6 +28,9 @@
         <module>usian_sso_service</module>
         <module>usian_sso_feign</module>
         <module>usian_sso_web</module>
+        <module>usian_cart_service</module>
+        <module>usian_cart_feign</module>
+        <module>usian_cart_web</module>
     </modules>
 
     <!--Spring Boot 父工程-->

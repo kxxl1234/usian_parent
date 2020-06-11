@@ -1,0 +1,15 @@
+spring:
+  application:
+    name: usian-cart-web
+server:
+  port: 8101
+eureka:
+  client:
+    service-url:
+      defaultZone: http://127.0.0.1:8761/eureka/
+
+#未登陆购物车
+CART_COOKIE_KEY: CART_COOKIE_KEY
+CART_COOKIE_EXPIRE: 604800
+#登陆购物车
+CART_REDIS_KEY: CART_REDIS_KEY
