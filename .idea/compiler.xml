@@ -21,6 +21,9 @@
         <module name="usian_item_feign" />
         <module name="usian_item_service" />
         <module name="usian_item_wab" />
+        <module name="usian_order_feign" />
+        <module name="usian_order_service" />
+        <module name="usian_order_web" />
         <module name="usian_portal_web" />
         <module name="usian_search_feign" />
         <module name="usian_search_service" />
@@ -48,6 +51,9 @@
       <module name="usian_item_feign" options="-parameters" />
       <module name="usian_item_service" options="-parameters" />
       <module name="usian_item_wab" options="-parameters" />
+      <module name="usian_order_feign" options="-parameters" />
+      <module name="usian_order_service" options="-parameters" />
+      <module name="usian_order_web" options="-parameters" />
       <module name="usian_portal_web" options="-parameters" />
       <module name="usian_search_feign" options="-parameters" />
       <module name="usian_search_service" options="-parameters" />
