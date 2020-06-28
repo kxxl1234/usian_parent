@@ -425,6 +425,10 @@ redis 和session 都可以设置失效时间，而且是 key-value 形式
    	缺点：
    		1、占用服务端存储空间
 
+代码思路：// 1、从cookie中查询商品列表。
+	//2、添加商品到购物车
+	//3、把购车商品列表写入Redis
+
 
 2020.6.16--- 日报
  用户身份确认：
@@ -434,8 +438,7 @@ redis 和session 都可以设置失效时间，而且是 key-value 形式
       根据token调用sso服务查询用户信息（也就是redis中查询）。
       如果查不到用户信息则跳转到登录页面。
                 查询到用户信息放行
-       然后走controller，先从redis查用户购物车中所有商品map集合，然后根据前台传来所结算商品id数组，
-       可得出所要结算的商品保存到list集合并返回给前台
+       然后走controller，先从redis查用户购物车中所有商品map集合，然后根据前台传来所结算商品id数组，可得出所要结算的商品保存到list集合并返回给前台
 
 2020.6.17--- 日报
 订单有三张表：
@@ -469,6 +472,238 @@ redis 和session 都可以设置失效时间，而且是 key-value 形式
 	//发布消息到mq，完成扣减库存
 	4、返回订单id
 
+2020.6.18--- 日报
+关闭超时订单：
+	写一个定时任务：定义一个job，让它扫描订单表
+	如果超时了：
+	1.--修改订单的状态为关闭状态，结束时间、关闭时间为当前时间
+	2.--把订单中商品库存的数量加回去
+
+	判断超时：
+	状态是未付款：并且创建时间<=当前时间-2天
+	而且必须的是在线支付的订单，货到付款肯定不算。
+
+	定义触发条件：
+		理论上是需要实时触发（每秒触发一次）；
+		但是我们没那么多访问量，一分钟触发一次就行
+
+Quartz框架的使用思路：
+	job-任务-你要做什么事?
+	Trigger-触发器-你什么时候去做？
+	Scheduler-任务调度-你什么时候需要去做什么事？
+
+分布式service ：加库存防止加多
+	需要用到分布式锁setnx；
+	方法运行完释放锁，
+	如果方法异常，设置失效时间释放锁
 
 
 
+
+
+
+2020.6.19--- 日报
+
+一、代理模式
+ 1、作用：控制访问某个对象的方法，调用方法前可以做前置处理，调用方法后可以做后置处理（AOP的微观实现）
+ 2、角色：
+		抽象角色（接口）：定义公共对外方法
+		真实角色（周杰伦）：业务逻辑
+		代理角色（代理人）：调用真实角色完成业务逻辑，并可附加自己的操作
+
+3、静态代理缺陷：
+	     大量代码重复
+	     只能代理一种类型的对象
+4、动态代理
+	a、jdk自带的动态代理
+	     java.lang.reflect.InvocationHandler：通过invoke调用真实角色
+	     java.lang.reflect.Proxy：动态生成代理类的对象
+
+		好处：
+		     大量代码重复
+		     能代理任意类型的对象
+
+	b、Cglib的动态代理
+		和jdk代理的区别：没有接口
+		原理：生成代理类的子类，在子类中调用父类并可附加自己的操作
+二、AOP
+  1、aop概述：面向切面编程，扩展功能无须修改源代码
+  2、aop底层原理：横向抽取机制（有接口时jdk动态代理，无接口Cglib动态代理）
+  3、aop核心概念：
+			切点：要增强的方法
+			增强/通知：日志、事务
+			切面：把增强应用到切点上
+  4、aop操作
+	a、增强
+		public class MyAdvice{
+			public void log(){
+				sout("日志........")
+			}
+		}
+		<bean id="myAdvice" class="com.usian.advice.MyAdvice">
+	b、配置切点和切面（aop）
+		<aop:config>
+			//切点
+			<aop:point expression="* com.usian.service.*.*(..)" id="pointcut">
+
+			//切面：把增强应用到切点上
+			<aop:aspect ref="myAdvice">
+				<aop:before method="log" pointcut-ref="pointcut">
+			</aop:aspect>
+		</aop:config>
+
+分布式事务：
+	1.分布式事务产生的场景
+		两个service--->一个数据库
+		一个service--->两个数据库
+
+	2.可靠消息最终一致性方案介绍
+		可靠消息：消息成功消费
+		最终一致性：事务参与方最终完成事务
+
+	3.可靠消息最终一致性要解决的问题
+	      1.上游服务把消息成功发送：
+		本地消息表：消息记录表（orderId、status）、quartz(定时扫描，发送消息)
+
+	      2.下游服务把消息成功消费
+		持久化+手动确认方案：持久化（mq宕机消息不丢失）、手动确认（任务处理失败消息还在容器中）
+
+	      3.消息幂等
+	 	记录消息的消费记录，存在了不管它，不存在进行任务处理
+
+
+
+
+
+
+2020.6.22--- 日报
+
+    ItemMQListener
+         public void listener(String msg, Channel channel, Message message)throws IOException {
+                LocalMessage localMessage = JsonUtils.jsonToPojo(msg, LocalMessage.class);
+                //进行幂等判断，防止ack应为网络问题没有送达，导致扣减库存业务重复执行
+                DeDuplication deDuplication =
+                    deDuplicationService.selectDeDuplicationByTxNo(localMessage.getTxNo());
+                if(deDuplication==null){
+                    //扣减库存
+                    Integer result =
+                        itemService.updateTbItemByOrderId(localMessage.getOrderNo());
+                    if(!(result>0)){
+                        throw new RuntimeException("扣减库存失败");
+                    }
+                    //记录成功执行过的事务
+                    deDuplicationService.insertDeDuplication(localMessage.getTxNo());
+                }else{
+                    System.out.println("=======幂等生效：事务"+deDuplication.getTxNo()
+                            +" 已成功执行===========");
+                }
+                channel.basicAck(message.getMessageProperties().getDeliveryTag(),false);
+            }
+    分布式日志:
+        ELK介绍:
+               ELK是Elasticsearch、Logstash、Kibana的简称（也称为 ELK Stack），是elastic公司提供的一套完整的日志收集以及展示的解决方案，
+            能够安全可靠地获取任何来源、任何格式的数据，然后实时地对数据进行搜索、分析和可视化。
+
+            - Elasticsearch：是开源的分布式全文检索服务器。
+            - Logstash：是一个具有实时传输能力的数据收集引擎，用来进行数据收集（如：读取文本文件）、解析，并将数据发送给ES。
+            - Kibana：数据分析与可视化平台，对Elasticsearch存储的数据进行可视化分析，通过表格的形式展现出来。
+
+        为什么要用 ELK？
+            一般大型系统都采用分布式架构，不同的模块部署在不同的服务器上，大规模分布式项目的日志面临的问题如下：
+            1. 文本搜索太慢怎么办？
+            2. 分布式环境下的日志如何查询？
+            3. 如何多维度查询？
+
+
+
+
+
+2020.6.24--- 日报
+
+	一、mysql主从复制（安装mysql）
+ 		linux安装mysql
+		查看已安装mysql：rpm -qa|grep mysql
+		卸载：rpm -e --nodeps mysql-libs-5.1.7.1-1.e16.x86_64
+		解压安装包到指定文件夹：tar -zxvf mysql-5.6.31-linux-glibc2.5-x86_64.tar.gz -C /usr/java
+		进入/usr/java：cd /usr/java
+		改名mysql：mv mysql-5.6.31-linux-glibc2.5-x86_64 mysql
+		复制mysql配置文件：cd mysql
+				cp support-files/my-default.cnf /etc/my.cnf
+				cp support-files/mysql.server /etc/rc.d/init.d/mysql
+		修改my.cnf  vim /etc/my.cnf
+		          	basedir = /usr/java/mysql
+			datadir = /usr/java/mysql/data
+			log-error = /usr/java/mysql/data/error.log
+			pid-file = /usr/java/mysql/data/mysql.pid
+			user = root
+			tmpdir = /tmp
+		初始化mysql：./scripts/mysql_install_db --user=root --basedir=/usr/java/mysql --datadir=/usr/java/mysql/data --pid-file=/usr/java/mysql/data/mysql.pid --tmpdir=/tmp
+		启动mysql：service mysql start
+		关闭mysql：service mysql stop
+		重启mydql：service mysql restart
+		修改MySQL密码：mysql -u root
+			            use mysql
+			            update user set password= password("1111") where user='root';
+			            flush privileges;
+		开放远程登陆权限：GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY '1111' WITH GRANT OPTION;
+ 				FLUSH PRIVILEGES;
+	二、mysql主从复制（配置）
+		主从复制简介
+		1. MySQL 默认支持主(master)从(slave)功能.
+		2. 主从复制效果：在主数据库中操作时,从同步进行变化.
+		3. 主从复制本质：主数据的操作写入到日志中,从数据库从日志中读取,进行操作.
+		主从复制要素
+		1. 开启日志功能
+   		2. 每个数据库需要有一个 server_id,主 server_id 值小于从server_id(标识从哪server写入的)
+   		3. 每个 mysql 都有一个 uuid,由于虚拟机直接进行克隆,需要修改uuid 的值(唯一识别码)
+   		4. 必须要在主数据库中有一个用户具有被从数据库操作的权限.
+		配置主从复制
+		配置主数据库
+		1.修改主数据库my.cnf
+		  log_bin=master_log
+		  server_id=1
+		2.重启mysql：service mysql restart
+		3.通过命令可以观察主数据库在主从关系中状态: show master status
+		配置从数据库
+		1.修改server_id: server_id=2
+		2.data文件夹auto.cnf编写当前mysql的uuid
+		3.重启 mysql servIce：service mysql restart
+		4.修改slave：
+		 stop slave;
+		change master to master_host='主ip',master_user='root',master_password='1111',master_log_file='master_log.000001';
+		start slave
+		5.查看slave状态：首位slavestatus \G;
+		6.验证主从关系：在主数据库中新建数据库,新建表,添加数据,观察从数据库的
+	二、mycat
+		1、什么是Mycat：是一个国产的数据库中间件，前身是阿里的cobar
+		2、分库分表：
+		垂直分割（分库）：指按照业务将表进行分类，分布到不同的数据库上面，这样也就将数据或者说压力分担到不同的库上面
+		水平分割（分表）：一个表格的数据按照行分割到多个节点上
+		典型的分片规则：根据主键编号进行hash、求余
+		3、mycat安装
+			1.下载mycat并上传到linux：官方网站：http://www.mycat.org.cn
+			2.解压mycat
+				tar -zxvf Mycat-server-1.6-RELEASE-20161028204710-linux.tar.gz -C /usr/java
+			3.启动和关闭mycat
+				启动：./mycat start
+				停止：./mycat stop
+				重启：./mycat restart
+				查看状态：./mycat status
+			4.mycat重要概念：
+				1、逻辑库（schema）：一个包含了所有数据库的逻辑上的数据库
+				2、逻辑表（table）：一个包含了所有表的逻辑上的表
+				3、数据主机（dataHost）：数据库软件安装到哪个服务器上
+				4、数据节点（dataNode）：数据库软件中的 database
+				5、分片规则（rule）：拆分规则
+		4、分片规则
+			1.auto-sharding-long 规则
+				以 500 万为单位,实现分片规则：
+				1-500 万保存在 db1 中, 500 万零 1 到 1000 万保存在 db2 中,1000 万零 1 到 1500 万保存在 db3 中
+			2.crc32slot规则：在 CRUD 操作时,根据具体数据的 crc32 算法计算,数据应该保存在哪一个dataNode 中
+				分片字段使用主键
+				tableRule：一个表一个
+				数据库节点数量
+		5、配置mycat的分库分表和读写分离
+			1、schema.xml作用：逻辑库、逻辑表、dataNode、分片规则
+			2、rule.xml：分片规则
+			3、server.xml：mycat的用户名、密码和权限

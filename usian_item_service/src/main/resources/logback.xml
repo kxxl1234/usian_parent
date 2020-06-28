@@ -31,10 +31,29 @@
 
     <!--myibatis log configure-->
 
+
+    <!-- 为logstash输出的JSON格式的Appender -->
+    <appender name="logstash"
+              class="net.logstash.logback.appender.LogstashTcpSocketAppender">
+        <!-- 日志目的地 -->
+        <destination>192.168.159.137:9250</destination>
+        <!-- 日志输出编码 -->
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <providers>
+                <pattern>
+                    <!--格式化输出：%d表示日期，%thread表示线程名，%-5level：级别从左显示5个字符宽
+					  度，logger是class的全名，%msg：日志消息-->
+                    <pattern>{"message":"%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg" }</pattern>
+                </pattern>
+            </providers>
+        </encoder>
+    </appender>
+
     <!-- 日志输出级别 -->
-    <root level="INFO">
+    <root level="DEBUG">
         <appender-ref ref="Stdout" />
         <appender-ref ref="RollingFile" />
+        <appender-ref ref="logstash" />
     </root>
 
 
